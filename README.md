@@ -8,7 +8,7 @@ To run the scripts within this repository we will need 2 things:
 1. A working ROOT build that can load AmpTools libraries
 2. A python environment based off the ifarm's current default python version (3.9.18)
 
-Luckily (almost) all these things are provided to you here for immediate and easy setup! First you'll want to `git clone` this repository into a directory on the ifarm, preferably within `/w/halld-scshelf2101/home/`.
+Luckily all these things are provided to you here for immediate and easy setup! First you'll want to `git clone` this repository into a directory on the ifarm, preferably within `/w/halld-scshelf2101/home/`.
 
 ## VS Code
 If you are using VS Code, you may have noticed a pop-up asking if you want to install the recommended extensions. These are of course just recommendations and not strictly needed, but I've found them to be greatly beneficial to my workflow.
@@ -42,7 +42,7 @@ We will be using very basic python virtual environments (venv) to keep our pytho
 
 NOTE: If you would like to contribute to this repository, please use the python Black formatter (included in the virtual environment and recommended vs code extensions) to keep the code format consistent
 
-# Guide
+# FAQ
 As stated in the intro, the best place to get started is the [jupyter notebook tutorial](./analysis/tutorial.ipynb), which will take you step-by-step through aggregating fit results and plotting them.
 
 ## How can I use this for my own non vector-pseudoscalar analysis?
@@ -56,4 +56,4 @@ When naming amplitudes like `reaction::sum_type::amp_name` there is unfortunatel
 | m              | spin-projection | p (+1), 0, m (-1) |
 | L              | orbital angular momentum | standard letter convention: S, P, D, F, ... |
 
-Note that this forces the m-projection to be single character. If your config files, and therefore `.fit` result files, don't follow this format then you must edit the `parse_amplitude` function within [extract_fit_results.cc](./scripts/extract_fit_results.cc) to properly convert your amplitude naming scheme into `eJPmL` format. This is because the csv headers use this format, and so all the analysis scripts depend on this for interpreting the results. You can, of course, choose to keep your `amp_name` scheme and instead rewrite all the analysis scripts to interpret your format instead, though it will require a lot more work.
+Note that this forces the m-projection to be a single character. If your config files, and therefore `.fit` result files, don't follow this format then you must edit the `parse_amplitude` function within [extract_fit_results.cc](./scripts/extract_fit_results.cc) to properly convert your amplitude naming scheme into `eJPmL` format. This is because the csv headers use this format, and so all the analysis scripts depend on this for interpreting the results. You can, of course, choose to keep your `amp_name` scheme and instead rewrite all the analysis scripts to interpret your format instead, though it will require a lot more work.
