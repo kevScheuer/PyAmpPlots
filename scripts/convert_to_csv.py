@@ -1,7 +1,9 @@
-"""This script converts AmpTools .fit file(s) into a csv
+"""This script converts AmpTools .fit file(s) or its associated ROOT files into a csv.
 
-Behind the scenes, this script calls a ROOT macro that reads in the .fit file(s) and
-extracts the fit results. The results are then written to a .csv file.
+This script is used for two fit result purposes:
+1. To aggregate the AmpTools .fit files into a single .csv file for easier analysis.
+2. To convert the ROOT files that the .fit files are based off of into a .csv file.
+Behind the scenes, this script calls a ROOT macro for either situation.
 """
 
 import argparse
@@ -28,13 +30,26 @@ def main(args: dict) -> None:
     if args["sorted"]:
         input_files = sort_input_files(args["input"])
 
+    if args["preview"]:
+        print("Files that will be processed:")
+        for file in input_files:
+            print(f"\t{file}")
+        return
+
     # hand off the files to the macro as a single space-separated string
     input_files = " ".join(input_files)
-    command = (
-        f'\'scripts/extract_fit_results.cc("{input_files}",'
-        f"\"{args['output']}\", {args['acceptance_corrected']})'"
-    )
 
+    if args["type"] == "fit":
+        command = (
+            f'\'scripts/extract_fit_results.cc("{input_files}",'
+            f"\"{args['output']}\", {args['acceptance_corrected']})'"
+        )
+    elif args["type"] == "root":
+        command = f"'scripts/extract_bin_info.cc(\"\")'"
+    else:
+        raise ValueError("Invalid type. Must be either 'fit' or 'root'")
+
+    # call the ROOT macro
     proc = subprocess.Popen(
         ["root", "-n", "-l", "-q"],
         stdin=subprocess.PIPE,
@@ -42,7 +57,7 @@ def main(args: dict) -> None:
         stderr=subprocess.PIPE,
         universal_newlines=True,
     )
-    proc.stdin.write(".x loadAmpTools.C;\n")
+    proc.stdin.write(".x loadAmpTools.C;\n")  # load the AmpTools libraries
     proc.stdin.write(command)
     proc.stdin.flush()
     stdout, stderr = proc.communicate()
@@ -54,6 +69,15 @@ def main(args: dict) -> None:
 
 def parse_args() -> dict:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-t",
+        "--type",
+        choices=["fit", "root"],
+        help=(
+            "Type of file to convert. Can be either 'fit' for AmpTools .fit files, or"
+            " 'root' for the ROOT data files that the .fit files are based off of"
+        ),
+    )
     parser.add_argument(
         "-i",
         "--input",
@@ -74,7 +98,9 @@ def parse_args() -> dict:
             " input files"
         ),
     )
-    parser.add_argument("-o", "--output", default="fits.csv", help="Output .csv file")
+    parser.add_argument(
+        "-o", "--output", default="fits.csv", help="File name of output .csv file"
+    )
     parser.add_argument(
         "-a",
         "--acceptance_corrected",
@@ -82,9 +108,15 @@ def parse_args() -> dict:
         default=False,
         help=(
             "When True, the amplitude intensities are corrected for acceptance. These"
-            " are the true 'generated' values with no detector effects. Default to"
+            " are the true 'generated' values with no detector effects. Defaults to"
             " False, or the 'reconstructed' values"
         ),
+    )
+    parser.add_argument(
+        "-p",
+        "--preview",
+        action="store_true",
+        help=("When passed, print out the files that will be processed and exit."),
     )
     return vars(parser.parse_args())
 
