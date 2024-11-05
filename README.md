@@ -2,7 +2,7 @@
 This repository serves as a beginner's guide for using python to plot partial wave analysis fits from AmpTools. Follow the quick **Setup** instructions below, and work through the [jupyter notebook tutorial](./analysis/tutorial.ipynb) for how to get started. It is assumed you are a beginner to extracting and plotting fit results, but have a basic understanding of how AmpTools partial wave analyses work. If not, make sure to check the tutorials and guides at it's [github](https://github.com/mashephe/AmpTools).
 
 # Setup
-:warning: This guide is tailored for the repo to be cloned to an ifarm node :warning:
+:warning: This repo must be cloned to an ifarm node :warning:
 
 To run the scripts within this repository we will need 2 things:
 1. A working ROOT build that can load AmpTools libraries
