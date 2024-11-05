@@ -19,16 +19,23 @@ def main(args: dict) -> None:
         raise EnvironmentError(
             "ROOTSYS path is not loaded. Make sure to run 'source setup_gluex.csh'\n"
         )
-    if not args["output"].endswith(".csv"):
+    if args["output"] and not args["output"].endswith(".csv"):
         args["output"] = args["output"] + ".csv"
     for input_file in args["input"]:
         if not os.path.exists(input_file):
-            print(f"File {input_file} does not exist")
+            print(f"File {input_file} does not exist, exiting")
             return
+    if all(file.endswith(".fit") for file in args["input"]):
+        file_type = "fit"
+    elif all(file.endswith(".root") for file in args["input"]):
+        file_type = "root"
+    else:
+        raise ValueError(
+            "All input files must be of the same type: either .fit or .root files"
+        )
 
     # sort the input files based off the last number in the file name or path
-    if args["sorted"]:
-        input_files = sort_input_files(args["input"])
+    input_files = sort_input_files(args["input"]) if args["sorted"] else args["input"]
 
     if args["preview"]:
         print("Files that will be processed:")
@@ -39,28 +46,33 @@ def main(args: dict) -> None:
     # hand off the files to the macro as a single space-separated string
     input_files = " ".join(input_files)
 
-    if args["type"] == "fit":
+    if file_type == "fit":
+        output_file_name = "fits.csv" if not args["output"] else args["output"]
         command = (
-            f'\'scripts/extract_fit_results.cc("{input_files}",'
-            f"\"{args['output']}\", {args['acceptance_corrected']})'"
+            f'.x scripts/extract_fit_results.cc("{input_files}",'
+            f" \"{output_file_name}\", {args['acceptance_corrected']})\n"
         )
-    elif args["type"] == "root":
-        command = f"'scripts/extract_bin_info.cc(\"\")'"
+    elif file_type == "root":
+        output_file_name = "data.csv" if not args["output"] else args["output"]
+        command = f'.x scripts/extract_bin_info.cc("")\n'
     else:
         raise ValueError("Invalid type. Must be either 'fit' or 'root'")
 
     # call the ROOT macro
     proc = subprocess.Popen(
-        ["root", "-n", "-l", "-q"],
+        ["root", "-n", "-l"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
     )
-    proc.stdin.write(".x loadAmpTools.C;\n")  # load the AmpTools libraries
+    if file_type == "fit":
+        proc.stdin.write(".x loadAmpTools.C\n")  # load the AmpTools libraries for fits
     proc.stdin.write(command)
     proc.stdin.flush()
     stdout, stderr = proc.communicate()
+    proc.stdin.close()
+    proc.wait()
     print(stdout)
     print(stderr)
 
@@ -69,15 +81,6 @@ def main(args: dict) -> None:
 
 def parse_args() -> dict:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-t",
-        "--type",
-        choices=["fit", "root"],
-        help=(
-            "Type of file to convert. Can be either 'fit' for AmpTools .fit files, or"
-            " 'root' for the ROOT data files that the .fit files are based off of"
-        ),
-    )
     parser.add_argument(
         "-i",
         "--input",
@@ -99,11 +102,11 @@ def parse_args() -> dict:
         ),
     )
     parser.add_argument(
-        "-o", "--output", default="fits.csv", help="File name of output .csv file"
+        "-o", "--output", default="", help="File name of output .csv file"
     )
     parser.add_argument(
         "-a",
-        "--acceptance_corrected",
+        "--acceptance-corrected",
         type=bool,
         default=False,
         help=(
