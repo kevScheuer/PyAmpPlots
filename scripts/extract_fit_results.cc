@@ -1,12 +1,10 @@
 /* Extract the fit results from a list of AmpTools output files and writes them to a csv
-The csv file will have the following columns:
+The csv file will have the following columns, and their errors if applicable:
     - eMatrixStatus
     - lastMinuitCommandStatus
     - likelihood
     - detected_events
-    - detected_events_err
     - generated_events
-    - generated_events_err
     - AmpTools parameters
     - all amplitude coherent sums
     - all phase differences
@@ -18,8 +16,9 @@ format, where:
     P = parity (either p [+] or m [-])
     m = m-projection (either p [+], m [-], or 0)
     L = orbital angular momentum (standard letter convention: S, P, D, F, ...)
-It also assumes that reflectivity sums do not mix, meaning that phase differences can
-not be computed between negative and positive reflectivity waves.
+It also assumes that reflectivity sums do not mix and are constrained across sums,
+meaning that phase differences can not be computed between negative and positive
+reflectivity waves.
 
 
 NOTE: this script is "reaction" independent, meaning if multiple reactions are in the
@@ -38,20 +37,19 @@ NOTE: this script is "reaction" independent, meaning if multiple reactions are i
 #include <vector>
 
 #include "IUAmpTools/FitResults.h"
-#include "TMath.h"
 
 // forward declarations
 void fill_maps(
     FitResults &results,
     std::map<std::string, double> &standard_results,
-    std::map<std::string, std::pair<std::string, std::string>> &phase_diffs,
-    std::map<std::string, std::map<std::string, std::vector<std::string>>> &coherent_sums);
+    std::map<std::string, std::complex<double>> &production_coefficients,
+    std::map<std::string, std::map<std::string, std::vector<std::string>>> &coherent_sums,
+    std::map<std::string, std::pair<std::string, std::string>> &phase_diffs);
 
 std::tuple<std::string, std::string, std::string, std::string> parse_amplitude(std::string amplitude);
 
 void extract_fit_results(std::string files, std::string csv_name, bool is_acceptance_corrected)
 {
-
     // store space-separated list of files into a vector
     std::vector<std::string> file_vector;
     std::istringstream iss(files);
@@ -88,20 +86,21 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
     // Initialize the map for all coherent sum types
     std::map<std::string, std::map<std::string, std::vector<std::string>>> coherent_sums;
     std::vector<std::string> coherent_sum_types = {
-        "eJPmL",    // single amplitudes
-        "JPmL",     // sum reflectivity
-        "eJPL",     // sum m-projection
-        "JPL",      // sum {reflectivity, m-projection}
-        "eJP",      // sum {m-projection, angular momenta}
-        "JP",       // sum {reflectivity, m-projection, angular momenta
-        "e"         // sum all except reflectivity
-    } for (const auto &key : coherent_sum_types)
+        "eJPmL", // single amplitudes
+        "JPmL",  // sum reflectivity
+        "eJPL",  // sum m-projection
+        "JPL",   // sum {reflectivity, m-projection}
+        "eJP",   // sum {m-projection, angular momenta}
+        "JP",    // sum {reflectivity, m-projection, angular momenta
+        "e"      // sum all except reflectivity
+    };
+    for (const auto &key : coherent_sum_types)
     {
         coherent_sums[key] = std::map<std::string, std::vector<std::string>>();
     }
 
     // finally a map for the production coefficients (in eJPmL format) and their errors
-    std::map<std::string, std::complex<double, double>> production_coefficients;
+    std::map<std::string, std::complex<double>> production_coefficients;
 
     // open csv file for writing
     std::ofstream csv_file;
@@ -122,12 +121,12 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
         // before getting this file's info, clear the results from the last file
         standard_results.clear();
         production_coefficients.clear();
-        for (const auto& [key, val] : coherent_sums)
+        for (auto &pair : coherent_sums)
         {
-            val.clear();
+            pair.second.clear();
         }
         phase_diffs.clear();
-        
+
         // fill all the maps for this file
         fill_maps(results, standard_results, production_coefficients, coherent_sums, phase_diffs);
 
@@ -136,13 +135,13 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
         if (csv_file.tellp() == 0)
         {
             // 1. standard results (these already have _err values)
-            for (const auto& [kev, val] : standard_results)
+            for (const auto &pair : standard_results)
             {
-                csv_file << key << ",";
+                csv_file << pair.first << ",";
             }
             // 2. AmpTools parameter names
-            for (const auto& par_name : results.parNameList())
-            {                
+            for (const auto &par_name : results.parNameList())
+            {
                 // skip amplitude-based parameters
                 if (par_name.find("::") != std::string::npos)
                 {
@@ -151,35 +150,40 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
                 csv_file << par_name << "," << par_name << "_err,";
             }
             // 3. production parameters in eJPmL_(re/im) format
-            for (const auto& [key, complex_val] : production_coefficients)
+            for (const auto &pair : production_coefficients)
             {
-                csv_file << key << "_re" << ",";
-                csv_file << key << "_im" << ",";
+                csv_file << pair.first << "_re" << ",";
+                csv_file << pair.first << "_im" << ",";
             }
             // 4. eJPmL based coherent sum titles
-            for (const auto& [sum_name, sum_map] : coherent_sums)
+            for (const auto &pair : coherent_sums)
             {
-                for (const auto& [sum, amp_vector] : coherent_sums[sum_name])
+                for (const auto &pair : coherent_sums[pair.first])
                 {
-                    csv_file << sum << "," << sum << "_err,";
+                    csv_file << pair.first << "," << pair.first << "_err,";
                 }
             }
             // 5. phase difference names in eJPmL_eJPmL format
-            for (const auto& [pd_name, pd_pair] : phase_diffs)
+            // use a different iterator method to avoid adding an extra comma at the end
+            for (auto it = phase_diffs.begin(); it != phase_diffs.end(); ++it)
             {
-                csv_file << pd_name << "," << pd_name << "_err,";
+                csv_file << it->first << "," << it->first << "_err";
+                if (std::next(it) != phase_diffs.end())
+                {
+                    csv_file << ",";
+                }
             }
             csv_file << "\n";
         } // end header row
 
-        // now write the values in the same oder of map loops
+        // now write the values in the same order of map loops
         // 1. standard results
-        for (const auto& [key, val] : standard_results)
+        for (const auto &pair : standard_results)
         {
-            csv_file << val << ",";
+            csv_file << pair.second << ",";
         }
         // 2. AmpTools parameters
-        for (const auto& par_name : results.parNameList())
+        for (const auto &par_name : results.parNameList())
         {
             // skip amplitude-based parameters
             if (par_name.find("::") != std::string::npos)
@@ -187,29 +191,36 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
                 continue;
             }
             csv_file << results.parValue(par_name) << ",";
-            csv_file << results.parError(par_name) << ",";          
+            csv_file << results.parError(par_name) << ",";
         }
         // 3. production parameters
-        for (const auto& [key, complex_val] : production_coefficients)
+        for (const auto &pair : production_coefficients)
         {
-            csv_file << complex_val.real() << ",";
-            csv_file << complex_val.imag() << ",";
+            csv_file << pair.second.real() << ",";
+            csv_file << pair.second.imag() << ",";
         }
         // 4. coherent sums
-        for (const auto& [sum_name, sum_map] : coherent_sums)
+        for (const auto &pair : coherent_sums)
         {
-            for (const auto& [sum, amp_vector] : coherent_sums[sum_name])
-            {                
-                csv_file << results.intensity(amp_vector, is_acceptance_corrected).first << ",";
-                csv_file << results.intensity(amp_vector, is_acceptance_corrected).second << ",";
+            for (const auto &sub_pair : coherent_sums[pair.first])
+            {
+                csv_file << results.intensity(sub_pair.second, is_acceptance_corrected).first << ",";
+                csv_file << results.intensity(sub_pair.second, is_acceptance_corrected).second << ",";
             }
         }
-        // 5. phase differences
-        for (const auto& [pd_name, pd_pair] : phase_diffs)
+        // 5. phase differences, again avoiding an extra comma at the end
+        for (auto it = phase_diffs.begin(); it != phase_diffs.end(); ++it)
         {
-            csv_file << results.phaseDiff(pd_pair.first, pd_pair.second).first << ",";
-            csv_file << results.phaseDiff(pd_pair.first, pd_pair.second).second << ",";
+            std::string phase1 = it->second.first;
+            std::string phase2 = it->second.second;
+            csv_file << results.phaseDiff(phase1, phase2).first << ","; // value
+            csv_file << results.phaseDiff(phase1, phase2).second;       // error
+            if (std::next(it) != phase_diffs.end())
+            {
+                csv_file << ",";
+            }
         }
+        csv_file << "\n"; // end of row, move on to next file
     }
 }
 
@@ -217,10 +228,9 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
 void fill_maps(
     FitResults &results,
     std::map<std::string, double> &standard_results,
-    std::map<std::string, std::complex<double, double>> &production_coefficients,
+    std::map<std::string, std::complex<double>> &production_coefficients,
     std::map<std::string, std::map<std::string, std::vector<std::string>>> &coherent_sums,
-    std::map<std::string, std::pair<std::string, std::string>> &phase_diffs    
-    )
+    std::map<std::string, std::pair<std::string, std::string>> &phase_diffs)
 {
     // Store the standard AmpTools fit outputs
     standard_results["eMatrixStatus"] = results.eMatrixStatus();
@@ -245,11 +255,13 @@ void fill_maps(
             {
                 coherent_sums["eJPmL"]["Bkgd"].push_back(amplitude);
                 continue;
-            }            
+            }
 
             // split the "eJPmL" part of the amplitude into its components
             std::string e, JP, m, L;
             std::tie(e, JP, m, L) = parse_amplitude(amplitude);
+
+            std::string eJPmL = e + JP + m + L;
 
             // store the production coefficients
             production_coefficients[eJPmL] = results.scaledProductionParameter(amplitude);
@@ -266,7 +278,11 @@ void fill_maps(
             // store the phase differences
             for (std::string pd_amplitude : results.ampList(reaction))
             {
-                if (pd_amplitude == amplitude)
+                std::string pd_e, pd_JP, pd_m, pd_L;
+                std::tie(pd_e, pd_JP, pd_m, pd_L) = parse_amplitude(pd_amplitude);
+                std::string pd_eJPmL = pd_e + pd_JP + pd_m + pd_L;
+
+                if (pd_eJPmL == eJPmL)
                     continue; // don't compare to itself
                 // isotropic background cannot have a phase difference
                 if (pd_amplitude.find("Bkgd") != std::string::npos ||
@@ -274,7 +290,6 @@ void fill_maps(
                 {
                     continue;
                 }
-                std::string pd_eJPmL = pd_amplitude.substr(pd_amplitude.rfind("::") + 2);
 
                 // avoid duplicates due to reverse ordering of names
                 if (phase_diffs.find(pd_eJPmL + "_" + eJPmL) != phase_diffs.end())
@@ -297,7 +312,7 @@ void fill_maps(
 // grab the "eJPmL" part of the amplitude and split into its components
 std::tuple<std::string, std::string, std::string, std::string> parse_amplitude(std::string amplitude)
 {
-    
+
     std::string eJPmL = amplitude.substr(amplitude.rfind("::") + 2);
     std::string e, JP, m, L;
     e = eJPmL.substr(0, 1);

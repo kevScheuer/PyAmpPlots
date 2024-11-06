@@ -50,7 +50,7 @@ def main(args: dict) -> None:
         output_file_name = "fits.csv" if not args["output"] else args["output"]
         command = (
             f'.x scripts/extract_fit_results.cc("{input_files}",'
-            f" \"{output_file_name}\", {args['acceptance_corrected']})\n"
+            f" \"{output_file_name}\", \"{args['acceptance_corrected']}\")\n"
         )
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
@@ -75,6 +75,9 @@ def main(args: dict) -> None:
     proc.wait()
     print(stdout)
     print(stderr)
+
+    if not stderr:
+        print(f"Results successfully written to: {output_file_name}")
 
     return
 
