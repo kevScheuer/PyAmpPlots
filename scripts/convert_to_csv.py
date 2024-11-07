@@ -43,19 +43,22 @@ def main(args: dict) -> None:
             print(f"\t{file}")
         return
 
+    # get the script directory to properly call the script with the right path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
     # hand off the files to the macro as a single space-separated string
     input_files = " ".join(input_files)
 
     if file_type == "fit":
         output_file_name = "fits.csv" if not args["output"] else args["output"]
         command = (
-            f'.x scripts/extract_fit_results.cc("{input_files}",'
+            f'.x {script_dir}/extract_fit_results.cc("{input_files}",'
             f" \"{output_file_name}\", \"{args['acceptance_corrected']}\")\n"
         )
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
         command = (
-            f'.x scripts/extract_bin_info.cc("{input_files}",'
+            f'.x {script_dir}/extract_bin_info.cc("{input_files}",'
             f" \"{output_file_name}\", \"{args['mass_branch']}\")\n"
         )
     else:
