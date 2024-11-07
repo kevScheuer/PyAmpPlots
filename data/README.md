@@ -2,6 +2,5 @@ Contained here is pseudo-data for us to test out our amplitude analysis plotter 
 
 Each bin contains the following:
 * **1** `anglesOmegaPiAmplitude.root` pseudo-data file, containing the $b_1$ and $\rho$ contributions and their angular information
-* **1** `anglesOmegaPiPhaseSpace.root` generated phasespace file. Since this is pseudo-data, no detector effects are included so this flat phasespace file is used for both the "generated" and "accepted" files.
 * **25** indexed `omegapi_#.fit` files in a `rand` subdirectory, that each contain the AmpTools fit results for a randomized fit to the pseudo-data
 * **1** `best.fit` file, that is the best AmpTools fit result (lowest $-2\ln \mathcal{L}$) out of the 25 random fits
