@@ -45,7 +45,7 @@ NOTE: If you would like to contribute to this repository, please use the python 
 # FAQ
 As stated in the intro, the best place to get started is the [jupyter notebook tutorial](./analysis/tutorial.ipynb), which will take you step-by-step through aggregating fit results and plotting them.
 
-## How can I use this for my own non vector-pseudoscalar analysis?
+## How can I adopt this for my own analysis?
 
 ### Amplitude Naming
 When naming amplitudes like `reaction::sum_type::amp_name` there is unfortunately no single standard that enforces what `amp_name` looks like. This repo follows the vector-pseudoscalar inspired format, where `amp_name = eJPmL`, explained in the table below.
@@ -58,7 +58,7 @@ When naming amplitudes like `reaction::sum_type::amp_name` there is unfortunatel
 | m              | spin-projection | p (+1), 0, m (-1) |
 | L              | orbital angular momentum | standard letter convention: S, P, D, F, ... |
 
-Note that this forces the m-projection to be a single character. If your config files, and therefore `.fit` result files, don't follow this format then you must edit the `parse_amplitude` function within [extract_fit_results.cc](./scripts/extract_fit_results.cc) to properly convert your amplitude naming scheme into `eJPmL` format. This is because the csv headers use this format, and so all the analysis scripts depend on this for interpreting the results. You can, of course, choose to keep your `amp_name` scheme and instead rewrite all the analysis scripts to interpret your format instead, though it will require a lot more work.
+Note that this forces the m-projection to be a single character. If your config files, and therefore `.fit` result files, don't follow this format then you must edit the `parse_amplitude` function within [extract_fit_results.cc](./scripts/extract_fit_results.cc) to properly convert your amplitude naming scheme into `eJPmL` format. This is because the csv headers use this format, and so all the analysis scripts *heavily* depend on this for interpreting the results. You can, of course, choose to keep your `amp_name` scheme and instead rewrite all the analysis scripts to interpret your format instead.
 
 ### Data File Format
 The [extract_bin_info.cc](./scripts/extract_bin_info.cc) script also makes 2 basic assumptions:
