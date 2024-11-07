@@ -312,7 +312,8 @@ void fill_maps(
 // grab the "eJPmL" part of the amplitude and split into its components
 std::tuple<std::string, std::string, std::string, std::string> parse_amplitude(std::string amplitude)
 {
-
+    // NOTE: this assumes the amplitude is named in the "eJPmL" format already, and will
+    // need to be adjusted if the naming convention is different
     std::string eJPmL = amplitude.substr(amplitude.rfind("::") + 2);
     std::string e, JP, m, L;
     e = eJPmL.substr(0, 1);

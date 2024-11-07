@@ -54,13 +54,16 @@ def main(args: dict) -> None:
         )
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
-        command = f'.x scripts/extract_bin_info.cc("")\n'
+        command = (
+            f'.x scripts/extract_bin_info.cc("{input_files}",'
+            f' "{output_file_name}")\n'
+        )
     else:
         raise ValueError("Invalid type. Must be either 'fit' or 'root'")
 
     # call the ROOT macro
     proc = subprocess.Popen(
-        ["root", "-n", "-l"],
+        ["root", "-n", "-l", "-b"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
