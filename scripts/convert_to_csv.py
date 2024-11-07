@@ -56,7 +56,7 @@ def main(args: dict) -> None:
         output_file_name = "data.csv" if not args["output"] else args["output"]
         command = (
             f'.x scripts/extract_bin_info.cc("{input_files}",'
-            f' "{output_file_name}")\n'
+            f" \"{output_file_name}\", \"{args['mass_branch']}\")\n"
         )
     else:
         raise ValueError("Invalid type. Must be either 'fit' or 'root'")
@@ -119,6 +119,17 @@ def parse_args() -> dict:
             "When True, the amplitude intensities are corrected for acceptance. These"
             " are the true 'generated' values with no detector effects. Defaults to"
             " False, or the 'reconstructed' values"
+        ),
+    )
+    parser.add_argument(
+        "-m",
+        "--mass-branch",
+        type=str,
+        default="M4Pi",
+        help=(
+            "Name of branch for the final invariant mass combo of interest in the"
+            " Amplitude Analysis. Note this is only applicable when attempting to"
+            " create csv's for ROOT data files."
         ),
     )
     parser.add_argument(

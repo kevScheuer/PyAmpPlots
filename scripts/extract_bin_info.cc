@@ -22,7 +22,7 @@ is used, then it will need to be implemented here.
 // forward declarations
 std::pair<double,double> get_hist_edges(TH1D* h, int round_to_decimals);
 
-void extract_bin_info(std::string files, std::string csv_name, std::string mass_branch = "M4Pi")
+void extract_bin_info(std::string files, std::string csv_name, std::string mass_branch)
 {
     // store space-separated list of files into a vector
     std::vector<std::string> file_vector;

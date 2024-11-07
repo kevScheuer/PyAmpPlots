@@ -46,6 +46,8 @@ NOTE: If you would like to contribute to this repository, please use the python 
 As stated in the intro, the best place to get started is the [jupyter notebook tutorial](./analysis/tutorial.ipynb), which will take you step-by-step through aggregating fit results and plotting them.
 
 ## How can I use this for my own non vector-pseudoscalar analysis?
+
+### Amplitude Naming
 When naming amplitudes like `reaction::sum_type::amp_name` there is unfortunately no single standard that enforces what `amp_name` looks like. This repo follows the vector-pseudoscalar inspired format, where `amp_name = eJPmL`, explained in the table below.
 
 | Quantum Number | Description | Allowed Characters |
@@ -57,3 +59,12 @@ When naming amplitudes like `reaction::sum_type::amp_name` there is unfortunatel
 | L              | orbital angular momentum | standard letter convention: S, P, D, F, ... |
 
 Note that this forces the m-projection to be a single character. If your config files, and therefore `.fit` result files, don't follow this format then you must edit the `parse_amplitude` function within [extract_fit_results.cc](./scripts/extract_fit_results.cc) to properly convert your amplitude naming scheme into `eJPmL` format. This is because the csv headers use this format, and so all the analysis scripts depend on this for interpreting the results. You can, of course, choose to keep your `amp_name` scheme and instead rewrite all the analysis scripts to interpret your format instead, though it will require a lot more work.
+
+### Data File Format
+The [extract_bin_info.cc](./scripts/extract_bin_info.cc) script also makes 2 basic assumptions:
+1. The flat ROOT trees (typically output by a DSelector) that serve as the input to AmpTools have cuts already applied to them in a mass bin. For example, the `M4Pi` branch in any of the mass bins in [data](./data/) is already cut to its alloted range. 
+2. The following branches exist in each file:
+    * `t`: the squared four momentum transfer
+    * `E_Beam`: beam photon energy
+    * `M4Pi`: the primary invariant mass of interest. Since this is heavily reaction dependent, it is an optional argument that can be passed
+    * `Weight`: tracks a weight value for each event so that sideband subtraction is properly implemented. This may fail when using a separate background file in AmpTools
