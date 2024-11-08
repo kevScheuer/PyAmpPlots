@@ -1,4 +1,4 @@
-"""_summary_
+"""Collection of helper functions for the analysis of AmpTools fit results
 """
 
 import itertools
@@ -13,7 +13,7 @@ def parse_amplitude(amp: str) -> Dict[str, str]:
     """parse 'eJPmL' style amplitude string into its individual quantum numbers
 
     Args:
-        amp (str): string like eJPmL, JPmL, JPm, JPL, eJPm, eJPL, eJP, JP
+        amp (str): string like eJPmL, JPmL, JPL, eJPL, eJP, JP
 
     Returns:
         dict: keys = quantum numbers (e, J, P, m, l). values = found values from string,
@@ -150,15 +150,15 @@ def wrap_phases(df: pd.DataFrame = None, series: pd.Series = None) -> None:
 
 
 def convert_amp_name(input_string: str) -> str:
-    """Converts amplitude type string to J^P L_m^(e) LaTeX style string
+    """Converts amplitude string to J^P L_m^(e) LaTeX style string
 
     Function can handle both amplitudes and phase differences. If input_string is not
     of eJPmL format, or subset of it i.e. eJPL, then the output will be undefined.
 
     Args:
-        input_string (str): amplitude string in eJPmL format
+        input_string (str): string in eJPmL format
     Returns:
-        str: Prettier LaTeX style amplitude in J^P L_m^(e) format. If it's a phase
+        str: Prettier LaTeX style string in J^P L_m^(e) format. If it's a phase
             difference it's then J^P L_m^(e) - J^P L_m^(e)
     """
 
