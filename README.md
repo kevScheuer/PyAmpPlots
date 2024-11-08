@@ -1,12 +1,12 @@
 # Introduction
-This repository serves as a beginner's guide for using python to plot partial wave analysis fits from AmpTools. To get started, follow the quick **Setup** instructions below, and see the [jupyter notebook tutorial](./analysis/tutorial.ipynb). It is assumed you are a beginner to extracting and plotting fit results, but have a basic understanding of how AmpTools partial wave analyses work. If not, make sure to check the tutorials and guides at it's [github](https://github.com/mashephe/AmpTools).
+This repository serves as a beginner's guide for how to aggregate partial wave analysis AmpTools fit results into csv files, and create plots from those files using python. To get started, follow the quick **Setup** instructions below, and see the [jupyter notebook tutorial](./analysis/tutorial.ipynb). It is assumed you are a beginner to extracting and plotting fit results, but have a basic understanding of how AmpTools partial wave analyses work. If not, make sure to check the tutorials and guides at it's [github](https://github.com/mashephe/AmpTools).
 
 # :hammer_and_wrench: Setup
 :warning: This repo must be cloned to an ifarm node :warning:
 
 To run the scripts within this repository we will need 2 things:
 1. A working ROOT build that can load AmpTools libraries
-2. A python environment based off the ifarm's current default python version (3.9.18)
+2. Python 3.9.18 (the ifarm default) or higher
 
 Luckily all these things are provided to you here for immediate and easy setup! First you'll want to `git clone` this repository into a directory on the ifarm, preferably within your own `/w/halld-scshelf2101/home/$USER/` directory.
 
