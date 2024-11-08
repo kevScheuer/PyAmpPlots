@@ -132,7 +132,7 @@ def parse_args() -> dict:
         help=(
             "Name of branch for the final invariant mass combo of interest in the"
             " Amplitude Analysis. Note this is only applicable when attempting to"
-            " create csv's for ROOT data files."
+            " create csv's for ROOT data files. Defaults to M4Pi"
         ),
     )
     parser.add_argument(
