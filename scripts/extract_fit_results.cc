@@ -5,7 +5,8 @@ The csv file will have the following columns, and their errors if applicable:
     - likelihood
     - detected_events
     - generated_events
-    - AmpTools parameters
+    - all AmpTools parameters
+    - all production coefficients
     - all amplitude coherent sums
     - all phase differences
 
@@ -91,7 +92,7 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
         "eJPL",  // sum m-projection
         "JPL",   // sum {reflectivity, m-projection}
         "eJP",   // sum {m-projection, angular momenta}
-        "JP",    // sum {reflectivity, m-projection, angular momenta
+        "JP",    // sum {reflectivity, m-projection, angular momenta}
         "e"      // sum all except reflectivity
     };
     for (const auto &key : coherent_sum_types)
@@ -99,7 +100,7 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
         coherent_sums[key] = std::map<std::string, std::vector<std::string>>();
     }
 
-    // finally a map for the production coefficients (in eJPmL format) and their errors
+    // lastly a map for the production coefficients (in eJPmL format)
     std::map<std::string, std::complex<double>> production_coefficients;
 
     // open csv file for writing
