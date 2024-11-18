@@ -57,16 +57,22 @@ def main(args: dict) -> None:
         )
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
-        command = (
-            f'.x {script_dir}/extract_bin_info.cc("{input_files}",'
-            f" \"{output_file_name}\", \"{args['mass_branch']}\")\n"
-        )
+        if args["fsroot"] == True:
+            command = (
+                f'.x {script_dir}/extract_bin_info_fsroot.cc("{input_files}",'
+                f" \"{output_file_name}\", \"{args['tree_name']}\", \"{args['meson_index']}\")\n "
+            )
+        else:
+            command = (
+                f'.x {script_dir}/extract_bin_info.cc("{input_files}",'
+                f" \"{output_file_name}\", \"{args['mass_branch']}\")\n"
+            )
     else:
         raise ValueError("Invalid type. Must be either 'fit' or 'root'")
 
     # call the ROOT macro
     proc = subprocess.Popen(
-        ["root", "-n", "-l", "-b"],
+        ["root","-n", "-l", "-b"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -74,6 +80,8 @@ def main(args: dict) -> None:
     )
     if file_type == "fit":
         proc.stdin.write(".x loadAmpTools.C\n")  # load the AmpTools libraries for fits
+    if file_type == "root" and args["fsroot"] == True:        
+        proc.stdin.write(".x $FSROOT/rootlogon.FSROOT.C\n") # load the FSRoot macros
     proc.stdin.write(command)
     proc.stdin.flush()
     stdout, stderr = proc.communicate()
@@ -140,6 +148,35 @@ def parse_args() -> dict:
         "--preview",
         action="store_true",
         help=("When passed, print out the files that will be processed and exit."),
+    )
+    parser.add_argument(
+        "-f",
+        "--fsroot",
+        type=bool,
+        default=False,
+        help=(
+            "Indicates that the data input file is in FSRoot format. Needs to be used"
+            " in conjunction with -nt and -mi arguments"
+        ),
+    )
+    parser.add_argument(
+        "-nt",
+        "--tree-name",
+        type=str,
+        default="ntFSGlueX_100_221",
+        help=(
+            "FSRoot tree name"
+        ),
+    )
+    parser.add_argument(
+        "-mi",
+        "--meson-index",
+        type=str,
+        default="2,3,4,5",
+        help=(
+            "Indices of the particles coming from the meson vertex. Only relevant for FSRoot"
+            " formatted data files"
+        )
     )
     return vars(parser.parse_args())
 
