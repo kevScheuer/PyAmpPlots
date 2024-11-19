@@ -49,6 +49,7 @@ def main(args: dict) -> None:
     # hand off the files to the macro as a single space-separated string
     input_files = " ".join(input_files)
 
+    # what ROOT script is called depends on the file types being aggregated
     if file_type == "fit":
         output_file_name = "fits.csv" if not args["output"] else args["output"]
         command = (
@@ -57,10 +58,11 @@ def main(args: dict) -> None:
         )
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
-        if args["fsroot"] == True:
+        if args["fsroot"]:
             command = (
                 f'.x {script_dir}/extract_bin_info_fsroot.cc("{input_files}",'
-                f" \"{output_file_name}\", \"{args['tree_name']}\", \"{args['meson_index']}\")\n "
+                f" \"{output_file_name}\", \"{args['tree_name']}\","
+                f" \"{args['meson_index']}\")\n "
             )
         else:
             command = (
@@ -72,7 +74,7 @@ def main(args: dict) -> None:
 
     # call the ROOT macro
     proc = subprocess.Popen(
-        ["root","-n", "-l", "-b"],
+        ["root", "-n", "-l", "-b"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -80,8 +82,8 @@ def main(args: dict) -> None:
     )
     if file_type == "fit":
         proc.stdin.write(".x loadAmpTools.C\n")  # load the AmpTools libraries for fits
-    if file_type == "root" and args["fsroot"] == True:        
-        proc.stdin.write(".x $FSROOT/rootlogon.FSROOT.C\n") # load the FSRoot macros
+    if file_type == "root" and args["fsroot"]:
+        proc.stdin.write(".x $FSROOT/rootlogon.FSROOT.C\n")  # load the FSRoot macros
     proc.stdin.write(command)
     proc.stdin.flush()
     stdout, stderr = proc.communicate()
@@ -152,8 +154,7 @@ def parse_args() -> dict:
     parser.add_argument(
         "-f",
         "--fsroot",
-        type=bool,
-        default=False,
+        action="store_true",
         help=(
             "Indicates that the data input file is in FSRoot format. Needs to be used"
             " in conjunction with -nt and -mi arguments"
@@ -164,9 +165,7 @@ def parse_args() -> dict:
         "--tree-name",
         type=str,
         default="ntFSGlueX_100_221",
-        help=(
-            "FSRoot tree name"
-        ),
+        help=("FSRoot tree name"),
     )
     parser.add_argument(
         "-mi",
@@ -174,9 +173,9 @@ def parse_args() -> dict:
         type=str,
         default="2,3,4,5",
         help=(
-            "Indices of the particles coming from the meson vertex. Only relevant for FSRoot"
-            " formatted data files"
-        )
+            "Indices of the particles coming from the meson vertex. Only relevant for"
+            " FSRoot formatted data files"
+        ),
     )
     return vars(parser.parse_args())
 
