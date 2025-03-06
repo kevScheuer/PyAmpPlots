@@ -1,5 +1,6 @@
 /* Extract the fit results from a list of AmpTools output files and writes them to a csv
 The csv file will have the following columns, and their errors if applicable:
+    - file name
     - eMatrixStatus
     - lastMinuitCommandStatus
     - likelihood
@@ -49,15 +50,15 @@ void fill_maps(
 
 std::tuple<std::string, std::string, std::string, std::string> parse_amplitude(std::string amplitude);
 
-void extract_fit_results(std::string files, std::string csv_name, bool is_acceptance_corrected)
+void extract_fit_results(std::string file_path, std::string csv_name, bool is_acceptance_corrected)
 {
-    // store space-separated list of files into a vector
+    // file path is a text file with a list of AmpTools output files, each on a newline
     std::vector<std::string> file_vector;
-    std::istringstream iss(files);
-    std::string file;
-    while (iss >> file)
+    std::ifstream infile(file_path);
+    std::string line;
+    while (std::getline(infile, line))
     {
-        file_vector.push_back(file);
+        file_vector.push_back(line);
     }
 
     // ==== MAP INITIALIZATION ====
@@ -81,7 +82,7 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
     // An individual amplitude such as the positive reflectivity, JP=1+, S-wave with a
     // +1 m-projection is then stored like:
     // "eJPmL -> "p1p0S" -> {xx::ImagPosSign::p1p0S, xx::RealNegSign::p1p0S}
-    // An example of a coherent sum such as the over all JP=1+ states would be:
+    // A coherent sum such as the one over all JP=1+ states would be:
     // "JP" -> "1p" -> {xx::ImagNegSign::m1p0S, xx::RealNegSign::p1ppD, ...}
 
     // Initialize the map for all coherent sum types
@@ -107,15 +108,19 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
     std::ofstream csv_file;
     csv_file.open(csv_name);
 
+    // Collect all rows in a stringstream to minimize I/O operations
+    std::stringstream csv_data;
+    bool is_header_written = false;
+
     // ==== BEGIN FILE ITERATION ====
     // Iterate over each file, and add their results as a row in the csv
-    for (std::string file : file_vector)
+    for (const std::string &file : file_vector)
     {
-        cout << "Analyzing File: " << file << "\n";
+        std::cout << "Analyzing File: " << file << "\n";
         FitResults results(file);
         if (!results.valid())
         {
-            cout << "Invalid fit results in file: " << file << "\n";
+            std::cout << "Invalid fit results in file: " << file << "\n";
             continue;
         }
 
@@ -133,12 +138,13 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
 
         // == WRITE TO CSV ==
         // write the header row if this is the first file
-        if (csv_file.tellp() == 0)
+        if (!is_header_written)
         {
             // 1. standard results (these already have _err values)
+            csv_data << "file" << ",";
             for (const auto &pair : standard_results)
             {
-                csv_file << pair.first << ",";
+                csv_data << pair.first << ",";
             }
             // 2. AmpTools parameter names
             for (const auto &par_name : results.parNameList())
@@ -148,40 +154,42 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
                 {
                     continue;
                 }
-                csv_file << par_name << "," << par_name << "_err,";
+                csv_data << par_name << "," << par_name << "_err,";
             }
             // 3. production parameters in eJPmL_(re/im) format
             for (const auto &pair : production_coefficients)
             {
-                csv_file << pair.first << "_re" << ",";
-                csv_file << pair.first << "_im" << ",";
+                csv_data << pair.first << "_re" << ",";
+                csv_data << pair.first << "_im" << ",";
             }
             // 4. eJPmL based coherent sum titles
             for (const auto &pair : coherent_sums)
             {
-                for (const auto &pair : coherent_sums[pair.first])
+                for (const auto &sub_pair : coherent_sums[pair.first])
                 {
-                    csv_file << pair.first << "," << pair.first << "_err,";
+                    csv_data << sub_pair.first << "," << sub_pair.first << "_err,";
                 }
             }
             // 5. phase difference names in eJPmL_eJPmL format
             // use a different iterator method to avoid adding an extra comma at the end
             for (auto it = phase_diffs.begin(); it != phase_diffs.end(); ++it)
             {
-                csv_file << it->first << "," << it->first << "_err";
+                csv_data << it->first << "," << it->first << "_err";
                 if (std::next(it) != phase_diffs.end())
                 {
-                    csv_file << ",";
+                    csv_data << ",";
                 }
             }
-            csv_file << "\n";
+            csv_data << "\n";
+            is_header_written = true;
         } // end header row
 
         // now write the values in the same order of map loops
         // 1. standard results
+        csv_data << file << ",";
         for (const auto &pair : standard_results)
         {
-            csv_file << pair.second << ",";
+            csv_data << pair.second << ",";
         }
         // 2. AmpTools parameters
         for (const auto &par_name : results.parNameList())
@@ -191,22 +199,22 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
             {
                 continue;
             }
-            csv_file << results.parValue(par_name) << ",";
-            csv_file << results.parError(par_name) << ",";
+            csv_data << results.parValue(par_name) << ",";
+            csv_data << results.parError(par_name) << ",";
         }
         // 3. production parameters
         for (const auto &pair : production_coefficients)
         {
-            csv_file << pair.second.real() << ",";
-            csv_file << pair.second.imag() << ",";
+            csv_data << pair.second.real() << ",";
+            csv_data << pair.second.imag() << ",";
         }
         // 4. coherent sums
         for (const auto &pair : coherent_sums)
         {
             for (const auto &sub_pair : coherent_sums[pair.first])
             {
-                csv_file << results.intensity(sub_pair.second, is_acceptance_corrected).first << ",";
-                csv_file << results.intensity(sub_pair.second, is_acceptance_corrected).second << ",";
+                csv_data << results.intensity(sub_pair.second, is_acceptance_corrected).first << ",";
+                csv_data << results.intensity(sub_pair.second, is_acceptance_corrected).second << ",";
             }
         }
         // 5. phase differences, again avoiding an extra comma at the end
@@ -214,15 +222,20 @@ void extract_fit_results(std::string files, std::string csv_name, bool is_accept
         {
             std::string phase1 = it->second.first;
             std::string phase2 = it->second.second;
-            csv_file << results.phaseDiff(phase1, phase2).first << ","; // value
-            csv_file << results.phaseDiff(phase1, phase2).second;       // error
+            auto phase_diff = results.phaseDiff(phase1, phase2);            
+            csv_data << phase_diff.first << ","; // value
+            csv_data << phase_diff.second;       // error
             if (std::next(it) != phase_diffs.end())
             {
-                csv_file << ",";
+                csv_data << ",";
             }
         }
-        csv_file << "\n"; // end of row, move on to next file
+        csv_data << "\n"; // end of row, move on to next file
     }
+
+    // Write all collected data to the CSV file at once
+    csv_file << csv_data.str();
+    csv_file.close();
 }
 
 // fill all the fit results maps for a single file
