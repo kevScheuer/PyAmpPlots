@@ -10,6 +10,7 @@ import argparse
 import os
 import re
 import subprocess
+import tempfile
 
 
 def main(args: dict) -> None:
@@ -19,23 +20,47 @@ def main(args: dict) -> None:
         raise EnvironmentError(
             "ROOTSYS path is not loaded. Make sure to run 'source setup_gluex.csh'\n"
         )
+
     if args["output"] and not args["output"].endswith(".csv"):
         args["output"] = args["output"] + ".csv"
-    for input_file in args["input"]:
-        if not os.path.exists(input_file):
-            print(f"File {input_file} does not exist, exiting")
-            return
-    if all(file.endswith(".fit") for file in args["input"]):
+
+    # args["input"] can be a file containing a list of result files, so save the list of
+    # files to input_files. Otherwise, input_files is just args["input"]
+    input_files = []
+    if (
+        len(args["input"]) == 1
+        and os.path.isfile(args["input"][0])
+        and not args["input"][0].endswith(".fit")
+        and not args["input"][0].endswith(".root")
+    ):
+        with open(args["input"][0], "r") as file:
+            input_files = [line.strip() for line in file if line.strip()]
+    else:
+        input_files = args["input"]
+
+    # Check if all input files exist, and expand to its absolute path
+    print("Checking if all input files exist...")
+    for file in input_files:
+        if not os.path.exists(file):
+            raise FileNotFoundError(f"The file {file} does not exist")
+        if not os.path.isabs(file):
+            input_files[input_files.index(file)] = os.path.abspath(file)
+
+    if all(file.endswith(".fit") for file in input_files):
         file_type = "fit"
-    elif all(file.endswith(".root") for file in args["input"]):
+    elif all(file.endswith(".root") for file in input_files):
         file_type = "root"
     else:
         raise ValueError(
             "All input files must be of the same type: either .fit or .root files"
         )
 
-    # sort the input files based off the last number in the file name or path
-    input_files = sort_input_files(args["input"]) if args["sorted"] else args["input"]
+    # sort the input files
+    input_files = (
+        sort_input_files(input_files, args["sort_index"])
+        if args["sorted"]
+        else input_files
+    )
 
     if args["preview"]:
         print("Files that will be processed:")
@@ -46,55 +71,64 @@ def main(args: dict) -> None:
     # get the script directory to properly call the script with the right path
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # hand off the files to the macro as a single space-separated string
-    input_files = " ".join(input_files)
+    # hand off the files to the macro as a tempfile, where each file is on a newline
+    # this seems to improve the speed of subprocess.Popen
+    with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp_file:
+        temp_file.write("\n".join(input_files))
+        temp_file_path = temp_file.name
+    print(f"Temp file created at {temp_file_path}")
 
-    # what ROOT script is called depends on the file types being aggregated
+    # convert this flag into bool integers for the ROOT macro to interpret
     is_acceptance_corrected = 1 if args["acceptance_corrected"] else 0
+
+    # setup ROOT command with appropriate arguments
+    package = ""
     if file_type == "fit":
         output_file_name = "fits.csv" if not args["output"] else args["output"]
         command = (
-            f'.x {script_dir}/extract_fit_results.cc("{input_files}",'
-            f' "{output_file_name}", {is_acceptance_corrected})\n'
+            f'{script_dir}/extract_fit_results.cc("{temp_file_path}",'
+            f' "{output_file_name}", {is_acceptance_corrected})'
         )
+        package = "loadAmpTools.C"
     elif file_type == "root":
         output_file_name = "data.csv" if not args["output"] else args["output"]
         if args["fsroot"]:
             command = (
-                f'.x {script_dir}/extract_bin_info_fsroot.cc("{input_files}",'
+                f'{script_dir}/extract_bin_info_fsroot.cc("{temp_file_path}",'
                 f" \"{output_file_name}\", \"{args['tree_name']}\","
                 f" \"{args['meson_index']}\")\n "
             )
+            package = "$FSROOT/rootlogon.FSROOT.C"
         else:
             command = (
-                f'.x {script_dir}/extract_bin_info.cc("{input_files}",'
-                f" \"{output_file_name}\", \"{args['mass_branch']}\")\n"
+                f'{script_dir}/extract_bin_info.cc("{temp_file_path}",'
+                f" \"{output_file_name}\", \"{args['mass_branch']}\")"
             )
     else:
         raise ValueError("Invalid type. Must be either 'fit' or 'root'")
 
+    command = ["root", "-n", "-l", "-b", "-q", package, command]
+
+    print("Running ROOT macro...")
     # call the ROOT macro
     proc = subprocess.Popen(
-        ["root", "-n", "-l", "-b"],
+        command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
     )
-    if file_type == "fit":
-        proc.stdin.write(".x loadAmpTools.C\n")  # load the AmpTools libraries for fits
-    if file_type == "root" and args["fsroot"]:
-        proc.stdin.write(".x $FSROOT/rootlogon.FSROOT.C\n")  # load the FSRoot macros
-    proc.stdin.write(command)
-    proc.stdin.flush()
-    stdout, stderr = proc.communicate()
-    proc.stdin.close()
-    proc.wait()
-    print(stdout)
-    print(stderr)
-
-    if not stderr:
-        print(f"Results successfully written to: {output_file_name}")
+    # print the output of the ROOT macro as it runs
+    if args["verbose"]:
+        for line in iter(proc.stdout.readline, ""):
+            print(line, end="")
+    proc.wait()  # wait for the process to finish and update the return code
+    if proc.returncode != 0:
+        print("Error while running ROOT macro:")
+        for line in iter(proc.stderr.readline, ""):
+            print(line, end="")
+    else:
+        print("ROOT macro completed successfully")
 
     return
 
@@ -105,8 +139,8 @@ def parse_args() -> dict:
         "-i",
         "--input",
         help=(
-            "Input .fit file(s). Also accepts path(s) with a wildcard '*' and finds all"
-            " matching files"
+            "Input file(s). Also accepts path(s) with a wildcard '*' and finds all"
+            " matching files. Can also accept a file containing a list of files"
         ),
         nargs="+",
     )
@@ -119,6 +153,15 @@ def parse_args() -> dict:
             "Sort the input files by last number in the file name or path. Defaults"
             " to True, so that the index of each csv row matches the ordering of the"
             " input files"
+        ),
+    )
+    parser.add_argument(
+        "--sort-index",
+        type=int,
+        default=-1,
+        help=(
+            "Determines what number in the file path is used for sorting. Defaults to"
+            " -1, so that the last number in the path is used."
         ),
     )
     parser.add_argument(
@@ -152,6 +195,12 @@ def parse_args() -> dict:
         help=("When passed, print out the files that will be processed and exit."),
     )
     parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print out more information while running the script",
+    )
+    parser.add_argument(
         "-f",
         "--fsroot",
         action="store_true",
@@ -180,12 +229,23 @@ def parse_args() -> dict:
     return vars(parser.parse_args())
 
 
-def sort_input_files(input_files: list) -> list:
-    """Sort the input files based off the last number in the file name or path"""
+def sort_input_files(input_files: list, position: int = -1) -> list:
+    """Sort the input files based off the last number in the file name or path
+
+    Args:
+        input_files (list): input files to be sorted
+        position (int, optional): Index position of the number to be sorted on in the
+            full path. Defaults to -1, meaning the last number is used for sorting. Be
+            careful using this, as it will assume all path names have the same amount of
+            distinct numbers, and thus the same indices.
+
+    Returns:
+        list: sorted list of files
+    """
 
     def extract_last_number(full_path: str) -> float:
         numbers = re.findall(r"(?:\d*\.*\d+)", full_path)
-        return float(numbers[-1]) if numbers else float("inf")
+        return float(numbers[position]) if numbers else float("inf")
 
     return sorted(input_files, key=extract_last_number)
 
